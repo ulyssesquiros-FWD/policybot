@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Environment variables
+.env
+backend/.env
+frontend/.env
+*.local
+
+# Build & logs
+frontend/dist/
+dist/
+build/
+logs/
+*.log
+
+# Runtime local data / caches / legacy token files
+backend/data/
+backend/data/local_db_snapshot.json
+backend/data/qdrant_local_store.json
+backend/data/google_drive_tokens.json
+qdrant_server/
+qdrant_storage/
+*.pid
+
+# OS & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Credentials (never commit Google Drive or AI keys)
+credentials/
+*.json.key
+service-account*.json

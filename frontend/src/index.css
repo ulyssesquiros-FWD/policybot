@@ -1,0 +1,595 @@
+/* ==========================================================================
+   POLICYBOT HR — APPLE-INSPIRED DESIGN SYSTEM & EXPERIENCE
+   "Human Resources. Reimagined with Intelligence."
+   ========================================================================== */
+
+:root {
+  /* Color Palette — Apple Aesthetics */
+  --apple-black: #101114;
+  --apple-dark-card: #18191E;
+  --apple-dark-elevated: #22242B;
+  --apple-white: #FFFFFF;
+  --apple-light: #F5F5F7;
+  --apple-light-surface: #FFFFFF;
+  --apple-light-border: rgba(0, 0, 0, 0.08);
+  --apple-dark-border: rgba(255, 255, 255, 0.08);
+
+  /* Typography Colors */
+  --text-dark-primary: #FFFFFF;
+  --text-dark-secondary: #86868B;
+  --text-dark-tertiary: #6E6E73;
+  --text-light-primary: #1D1D1F;
+  --text-light-secondary: #6E6E73;
+  --text-light-tertiary: #86868B;
+
+  /* Accent Blue & Deep Navy */
+  --apple-blue: #2878FF;
+  --apple-blue-hover: #1B67EC;
+  --apple-blue-glow: rgba(40, 120, 255, 0.25);
+  --apple-navy: #14233F;
+
+  /* Status Colors */
+  --color-success: #30D158;
+  --color-success-bg: rgba(48, 209, 88, 0.12);
+  --color-warning: #FF9F0A;
+  --color-warning-bg: rgba(255, 159, 10, 0.12);
+  --color-danger: #FF453A;
+  --color-danger-bg: rgba(255, 69, 58, 0.12);
+
+  /* Geometry & Glass */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  --radius-pill: 980px;
+
+  --glass-dark: rgba(16, 17, 20, 0.78);
+  --glass-light: rgba(255, 255, 255, 0.82);
+  --blur-base: 24px;
+
+  /* Typography */
+  --font-system: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", sans-serif;
+  --letter-spacing-tight: -0.035em;
+  --letter-spacing-body: -0.012em;
+  --letter-spacing-eyebrow: 0.08em;
+
+  /* Shadows */
+  --shadow-subtle: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-glass: 0 12px 32px rgba(0, 0, 0, 0.06);
+  --shadow-floating: 0 20px 48px rgba(0, 0, 0, 0.1);
+  --shadow-dark-elevated: 0 24px 64px rgba(0, 0, 0, 0.45);
+}
+
+/* Reset & Base Rules */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family: var(--font-system);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
+  background-color: var(--apple-black);
+  color: var(--text-dark-primary);
+}
+
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Selection */
+::selection {
+  background: var(--apple-blue);
+  color: #FFFFFF;
+}
+
+/* Links & Buttons */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+}
+
+/* ==========================================================================
+   TYPOGRAPHY CLASSES
+   ========================================================================== */
+.hero-headline {
+  font-size: clamp(2.75rem, 6.5vw, 5.5rem);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+.section-headline-dark {
+  font-size: clamp(2.25rem, 4.5vw, 3.75rem);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: var(--letter-spacing-tight);
+  color: #FFFFFF;
+}
+
+.section-headline-light {
+  font-size: clamp(2.25rem, 4.5vw, 3.75rem);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: var(--letter-spacing-tight);
+  color: var(--text-light-primary);
+}
+
+.eyebrow-accent {
+  display: inline-block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-eyebrow);
+  color: var(--apple-blue);
+  margin-bottom: 0.75rem;
+}
+
+.body-lead-dark {
+  font-size: clamp(1.125rem, 1.8vw, 1.35rem);
+  color: var(--text-dark-secondary);
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: var(--letter-spacing-body);
+}
+
+.body-lead-light {
+  font-size: clamp(1.125rem, 1.8vw, 1.35rem);
+  color: var(--text-light-secondary);
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: var(--letter-spacing-body);
+}
+
+/* ==========================================================================
+   APPLE-STYLE BUTTONS
+   ========================================================================== */
+.btn-apple-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.85rem 1.75rem;
+  border-radius: var(--radius-pill);
+  background-color: var(--apple-blue);
+  color: #FFFFFF;
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px var(--apple-blue-glow);
+}
+
+.btn-apple-primary:hover {
+  background-color: var(--apple-blue-hover);
+  transform: scale(1.02);
+  box-shadow: 0 6px 20px rgba(40, 120, 255, 0.35);
+}
+
+.btn-apple-primary:active {
+  transform: scale(0.98);
+}
+
+.btn-apple-secondary-dark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.85rem 1.75rem;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-apple-secondary-dark:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: scale(1.02);
+}
+
+.btn-apple-secondary-light {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.85rem 1.75rem;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text-light-primary);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-apple-secondary-light:hover {
+  background: rgba(0, 0, 0, 0.07);
+  border-color: rgba(0, 0, 0, 0.14);
+  transform: scale(1.02);
+}
+
+.btn-apple-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--apple-blue);
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: gap 0.2s ease;
+}
+
+.btn-apple-ghost:hover {
+  gap: 0.55rem;
+}
+
+/* ==========================================================================
+   AUTHENTICATED APP SHELL & LAYOUT
+   ========================================================================== */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--apple-light);
+  color: var(--text-light-primary);
+}
+
+.sidebar {
+  width: 270px;
+  background-color: var(--apple-black);
+  color: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  padding: 1.75rem 1.25rem;
+  flex-shrink: 0;
+  border-right: 1px solid var(--apple-dark-border);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  z-index: 40;
+}
+
+.sidebar-header {
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--apple-dark-border);
+  margin-bottom: 1.25rem;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-dark-secondary);
+  font-size: 0.925rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sidebar-link:hover {
+  color: #FFFFFF;
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.sidebar-link.active {
+  color: #FFFFFF;
+  background-color: rgba(255, 255, 255, 0.1);
+  font-weight: 600;
+}
+
+.sidebar-link.active .sidebar-icon {
+  color: var(--apple-blue);
+}
+
+.sidebar-user-card {
+  margin-top: auto;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--apple-dark-border);
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.avatar-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1C2333 0%, #2878FF 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(40, 120, 255, 0.3);
+}
+
+.user-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-name {
+  font-size: 0.925rem;
+  font-weight: 600;
+  color: #FFFFFF;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+}
+
+.user-role {
+  font-size: 0.75rem;
+  color: var(--text-dark-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.btn-logout {
+  color: var(--text-dark-secondary);
+  padding: 0.4rem;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.btn-logout:hover {
+  color: var(--color-danger);
+  background: rgba(255, 69, 58, 0.1);
+}
+
+/* Main Area & Navbar */
+.main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background-color: var(--apple-light);
+}
+
+.app-navbar {
+  height: 64px;
+  padding: 0 2.5rem;
+  background-color: var(--glass-light);
+  backdrop-filter: blur(var(--blur-base));
+  -webkit-backdrop-filter: blur(var(--blur-base));
+  border-bottom: 1px solid var(--apple-light-border);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.navbar-title-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.navbar-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-light-primary);
+}
+
+.navbar-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-light-secondary);
+}
+
+.navbar-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  color: var(--text-light-secondary);
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--color-success);
+}
+
+.status-dot.active {
+  box-shadow: 0 0 8px var(--color-success);
+}
+
+.page-content {
+  flex: 1;
+  padding: 2.5rem 3rem 4rem;
+  max-width: 1440px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ==========================================================================
+   CARDS, PANELS & CONTAINERS (APPLE PRO STYLE)
+   ========================================================================== */
+.apple-card {
+  background: var(--apple-white);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--apple-light-border);
+  padding: 2rem;
+  box-shadow: var(--shadow-subtle);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.apple-card:hover {
+  box-shadow: var(--shadow-glass);
+}
+
+.apple-card-dark {
+  background: var(--apple-dark-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--apple-dark-border);
+  padding: 2rem;
+  color: #FFFFFF;
+}
+
+/* Big Number Typography for KPIs */
+.kpi-big-number {
+  font-size: clamp(2rem, 3.5vw, 3rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--text-light-primary);
+}
+
+.kpi-big-number-dark {
+  font-size: clamp(2rem, 3.5vw, 3rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: #FFFFFF;
+}
+
+/* Minimalist Tables */
+.apple-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.925rem;
+}
+
+.apple-table th {
+  padding: 1rem 1.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-light-tertiary);
+  border-bottom: 1px solid var(--apple-light-border);
+  text-align: left;
+}
+
+.apple-table td {
+  padding: 1.1rem 1.25rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  color: var(--text-light-primary);
+  vertical-align: middle;
+}
+
+.apple-table tr:last-child td {
+  border-bottom: none;
+}
+
+.apple-table tr:hover td {
+  background-color: rgba(0, 0, 0, 0.015);
+}
+
+/* Minimalist Inputs */
+.apple-input {
+  width: 100%;
+  padding: 0.85rem 1.15rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--apple-light-border);
+  background-color: var(--apple-white);
+  color: var(--text-light-primary);
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.apple-input:focus {
+  border-color: var(--apple-blue);
+  box-shadow: 0 0 0 3px rgba(40, 120, 255, 0.15);
+}
+
+.apple-input-dark {
+  width: 100%;
+  padding: 0.85rem 1.15rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--apple-dark-border);
+  background-color: rgba(255, 255, 255, 0.04);
+  color: #FFFFFF;
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.apple-input-dark:focus {
+  border-color: var(--apple-blue);
+  box-shadow: 0 0 0 3px rgba(40, 120, 255, 0.25);
+  background-color: rgba(255, 255, 255, 0.07);
+}
+
+/* Responsive Overrides */
+@media (max-width: 900px) {
+  .app-shell {
+    flex-direction: column;
+  }
+  .sidebar {
+    width: 100%;
+    height: auto;
+    position: relative;
+  }
+  .page-content {
+    padding: 1.5rem;
+  }
+  .app-navbar {
+    padding: 0 1.5rem;
+  }
+}
