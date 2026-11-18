@@ -1178,11 +1178,479 @@ async function disconnectDriveConnection(userId) {
   return getActiveDriveConnection();
 }
 
+function calculateTenure(fechaIngreso) {
+  if (!fechaIngreso) return { antiguedadAnios: 0, antiguedadMeses: 0, antiguedadTexto: 'Sin fecha' };
+  const start = new Date(fechaIngreso);
+  const now = new Date();
+  const totalMonths = Math.max(
+    0,
+    (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth())
+  );
+  const years = Math.floor(totalMonths / 12);
+  const months = totalMonths % 12;
+  const antiguedadTexto = years > 0
+    ? `${years} año${years === 1 ? '' : 's'}${months > 0 ? ` y ${months} mes${months === 1 ? '' : 'es'}` : ''}`
+    : `${months} mes${months === 1 ? '' : 'es'}`;
+  return {
+    antiguedadAnios: Number((totalMonths / 12).toFixed(1)),
+    antiguedadMeses: totalMonths,
+    antiguedadTexto
+  };
+}
+
+function classifyPerformanceLevel(score) {
+  const val = Number(score || 0);
+  if (val >= 4.5) return 'Sobresaliente';
+  if (val >= 4.0) return 'Destacado';
+  if (val >= 3.5) return 'Esperado';
+  return 'En Desarrollo';
+}
+
+function groupByCollaborator(items) {
+  const map = new Map();
+  for (const item of items) {
+    const cid = Number(item.colaborador_id);
+    if (!map.has(cid)) map.set(cid, []);
+    map.get(cid).push(item);
+  }
+  return map;
+}
+
+function buildCollaboratorsAnalyticsPayload({
+  collabs,
+  saldos,
+  solicitudes,
+  incapacidades,
+  movimientos,
+  chats,
+  escalations
+}) {
+  const colabById = new Map(collabs.map((c) => [Number(c.id), c]));
+  const saldoByColab = new Map(saldos.map((s) => [Number(s.colaborador_id), s]));
+  const solByColab = groupByCollaborator(solicitudes);
+  const incByColab = groupByCollaborator(incapacidades);
+  const movByColab = groupByCollaborator(movimientos);
+  const chatByColab = groupByCollaborator(chats);
+  const escByColab = groupByCollaborator(escalations);
+
+  const colaboradores = collabs.map((c) => {
+    const cid = Number(c.id);
+    const jefe = c.jefe_directo_id ? colabById.get(Number(c.jefe_directo_id)) : null;
+    const saldo = saldoByColab.get(cid) || {};
+    const colsSol = solByColab.get(cid) || [];
+    const colsInc = incByColab.get(cid) || [];
+    const colsMov = [...(movByColab.get(cid) || [])].sort(
+      (a, b) => new Date(b.fecha_efectiva) - new Date(a.fecha_efectiva)
+    );
+    const colsChat = chatByColab.get(cid) || [];
+    const colsEsc = escByColab.get(cid) || [];
+
+    const diasAcum = Number(saldo.dias_acumulados || 0);
+    const diasDisf = Number(saldo.dias_disfrutados || 0);
+    const diasDisp = Number(saldo.dias_disponibles || 0);
+    const tenure = calculateTenure(c.fecha_ingreso);
+    const score = Number(c.ultimo_score_desempeno || 0);
+
+    return {
+      id: cid,
+      codigo_empleado: c.codigo_empleado,
+      nombre: c.nombre,
+      apellidos: c.apellidos,
+      nombreCompleto: `${c.nombre} ${c.apellidos}`.trim(),
+      correo: c.correo,
+      departamento: c.departamento,
+      puesto: c.puesto,
+      modalidad: c.modalidad,
+      estado: c.estado,
+      fecha_ingreso: c.fecha_ingreso,
+      ultimo_score_desempeno: score,
+      nivelDesempeno: classifyPerformanceLevel(score),
+      proxima_evaluacion: c.proxima_evaluacion,
+      jefe_directo_id: c.jefe_directo_id,
+      jefe_nombre: jefe ? `${jefe.nombre} ${jefe.apellidos}` : 'Dirección Ejecutiva',
+      ...tenure,
+      dias_acumulados: diasAcum,
+      dias_disfrutados: diasDisf,
+      dias_disponibles: diasDisp,
+      fecha_proximo_vencimiento: saldo.fecha_proximo_vencimiento || null,
+      excedeTope20Dias: diasDisp > 20 || diasAcum > 20,
+      porcentajeTope: Math.min(100, Math.round((diasDisp / 20) * 100)),
+      totalSolicitudes: colsSol.length,
+      solicitudesPendientes: colsSol.filter((s) => s.estado === 'PENDIENTE').length,
+      solicitudesAprobadas: colsSol.filter((s) => s.estado === 'APROBADA').length,
+      solicitudesRechazadas: colsSol.filter((s) => s.estado === 'RECHAZADA').length,
+      diasSolicitadosTotal: Number(
+        colsSol.reduce((acc, s) => acc + Number(s.dias_solicitados || 0), 0).toFixed(1)
+      ),
+      totalIncapacidades: colsInc.length,
+      incapacidadesActivas: colsInc.filter((i) => i.estado === 'ACTIVA').length,
+      diasIncapacidadTotal: colsInc.reduce((acc, i) => acc + Number(i.dias_incapacidad || 0), 0),
+      totalMovimientos: colsMov.length,
+      ultimoMovimiento: colsMov[0]
+        ? `${colsMov[0].tipo_movimiento} (${String(colsMov[0].fecha_efectiva).slice(0, 10)})`
+        : 'Sin movimientos recientes',
+      totalConsultasChat: colsChat.length,
+      escalamientosAbiertos: colsEsc.filter((e) => e.estado !== 'RESUELTO').length
+    };
+  });
+
+  // Agregación por departamento
+  const deptMap = {};
+  for (const col of colaboradores) {
+    const dep = col.departamento || 'Sin Departamento';
+    if (!deptMap[dep]) {
+      deptMap[dep] = {
+        departamento: dep,
+        totalColaboradores: 0,
+        activos: 0,
+        enVacaciones: 0,
+        incapacitados: 0,
+        sumVacDisponibles: 0,
+        sumVacAcumuladas: 0,
+        colaboradoresSobre20Dias: 0,
+        solicitudesPendientes: 0,
+        diasIncapacidadTotal: 0,
+        sumDesempeno: 0,
+        countDesempeno: 0
+      };
+    }
+    const d = deptMap[dep];
+    d.totalColaboradores += 1;
+    if (col.estado === 'ACTIVO') d.activos += 1;
+    if (col.estado === 'VACACIONES') d.enVacaciones += 1;
+    if (col.estado === 'INCAPACITADO') d.incapacitados += 1;
+    d.sumVacDisponibles += col.dias_disponibles;
+    d.sumVacAcumuladas += col.dias_acumulados;
+    if (col.excedeTope20Dias) d.colaboradoresSobre20Dias += 1;
+    d.solicitudesPendientes += col.solicitudesPendientes;
+    d.diasIncapacidadTotal += col.diasIncapacidadTotal;
+    if (col.ultimo_score_desempeno > 0) {
+      d.sumDesempeno += col.ultimo_score_desempeno;
+      d.countDesempeno += 1;
+    }
+  }
+
+  const porDepartamento = Object.values(deptMap)
+    .map((d) => ({
+      departamento: d.departamento,
+      totalColaboradores: d.totalColaboradores,
+      activos: d.activos,
+      enVacaciones: d.enVacaciones,
+      incapacitados: d.incapacitados,
+      promedioVacacionesDisponibles: Number((d.sumVacDisponibles / (d.totalColaboradores || 1)).toFixed(2)),
+      totalVacacionesDisponibles: Number(d.sumVacDisponibles.toFixed(1)),
+      colaboradoresSobre20Dias: d.colaboradoresSobre20Dias,
+      solicitudesPendientes: d.solicitudesPendientes,
+      diasIncapacidadTotal: d.diasIncapacidadTotal,
+      promedioDesempeno: d.countDesempeno > 0 ? Number((d.sumDesempeno / d.countDesempeno).toFixed(2)) : 0
+    }))
+    .sort((a, b) => b.totalColaboradores - a.totalColaboradores);
+
+  // Agregación por modalidad
+  const modMap = {};
+  for (const col of colaboradores) {
+    const mod = col.modalidad || 'HIBRIDO';
+    if (!modMap[mod]) {
+      modMap[mod] = {
+        modalidad: mod,
+        total: 0,
+        sumDesempeno: 0,
+        countDesempeno: 0,
+        sumVacDisponibles: 0,
+        diasIncapacidadTotal: 0
+      };
+    }
+    const m = modMap[mod];
+    m.total += 1;
+    m.sumVacDisponibles += col.dias_disponibles;
+    m.diasIncapacidadTotal += col.diasIncapacidadTotal;
+    if (col.ultimo_score_desempeno > 0) {
+      m.sumDesempeno += col.ultimo_score_desempeno;
+      m.countDesempeno += 1;
+    }
+  }
+
+  const porModalidad = Object.values(modMap).map((m) => ({
+    modalidad: m.modalidad,
+    total: m.total,
+    promedioDesempeno: m.countDesempeno > 0 ? Number((m.sumDesempeno / m.countDesempeno).toFixed(2)) : 0,
+    promedioVacacionesDisponibles: Number((m.sumVacDisponibles / (m.total || 1)).toFixed(2)),
+    diasIncapacidadTotal: m.diasIncapacidadTotal
+  }));
+
+  // Distribución de vacaciones
+  const distribucionVacaciones = [
+    {
+      rango: '0 a 10 días',
+      cantidad: colaboradores.filter((c) => c.dias_disponibles <= 10).length
+    },
+    {
+      rango: '11 a 15 días',
+      cantidad: colaboradores.filter((c) => c.dias_disponibles > 10 && c.dias_disponibles <= 15).length
+    },
+    {
+      rango: '16 a 20 días',
+      cantidad: colaboradores.filter((c) => c.dias_disponibles > 15 && c.dias_disponibles <= 20).length
+    },
+    {
+      rango: 'Más de 20 días (Exceso)',
+      cantidad: colaboradores.filter((c) => c.dias_disponibles > 20).length
+    }
+  ];
+
+  // Distribución de desempeño OKR
+  const distribucionDesempeno = [
+    {
+      nivel: 'Sobresaliente (≥ 4.5)',
+      cantidad: colaboradores.filter((c) => c.ultimo_score_desempeno >= 4.5).length
+    },
+    {
+      nivel: 'Destacado (4.0 - 4.49)',
+      cantidad: colaboradores.filter((c) => c.ultimo_score_desempeno >= 4.0 && c.ultimo_score_desempeno < 4.5).length
+    },
+    {
+      nivel: 'Esperado (3.5 - 3.99)',
+      cantidad: colaboradores.filter((c) => c.ultimo_score_desempeno >= 3.5 && c.ultimo_score_desempeno < 4.0).length
+    },
+    {
+      nivel: 'En Desarrollo (< 3.5)',
+      cantidad: colaboradores.filter((c) => c.ultimo_score_desempeno > 0 && c.ultimo_score_desempeno < 3.5).length
+    }
+  ];
+
+  return {
+    total: colaboradores.length,
+    colaboradores,
+    analytics: {
+      porDepartamento,
+      porModalidad,
+      distribucionVacaciones,
+      distribucionDesempeno
+    }
+  };
+}
+
+/**
+ * Obtiene el dataset analítico completo de los colaboradores mediante Sequelize ORM.
+ */
+async function getCollaboratorsDetailedAnalytics() {
+  await db.ensureReady();
+  if (db.isMysql()) {
+    const [collabs, saldos, solicitudes, incapacidades, movimientos, chats, escalations] = await Promise.all([
+      Collaborator.findAll({
+        attributes: { exclude: ['salario_mensual', 'cedula'] },
+        order: [['id', 'ASC']],
+        raw: true
+      }),
+      VacationBalance.findAll({ raw: true }),
+      Request.findAll({ raw: true }),
+      Disability.findAll({ raw: true }),
+      PersonnelMovement.findAll({ raw: true }),
+      ChatConsultation.findAll({ attributes: ['id', 'colaborador_id', 'confianza'], raw: true }),
+      HumanEscalation.findAll({ attributes: ['id', 'colaborador_id', 'estado'], raw: true })
+    ]);
+    return buildCollaboratorsAnalyticsPayload({
+      collabs,
+      saldos,
+      solicitudes,
+      incapacidades,
+      movimientos,
+      chats,
+      escalations
+    });
+  }
+
+  const snap = db.loadSnapshot();
+  return buildCollaboratorsAnalyticsPayload({
+    collabs: snap.colaboradores.map(({ salario_mensual, cedula, ...safe }) => safe),
+    saldos: snap.saldos_vacaciones || [],
+    solicitudes: snap.solicitudes || [],
+    incapacidades: snap.incapacidades || [],
+    movimientos: snap.movimientos_personal || [],
+    chats: snap.consultas_chat || [],
+    escalations: snap.escalaciones_rrhh || []
+  });
+}
+
+/**
+ * Construye el reporte individual 360° de un colaborador para auditoría y análisis de RRHH.
+ */
+async function getCollaboratorIndividualReport(colaboradorId) {
+  await db.ensureReady();
+  const idNum = Number(colaboradorId);
+  if (!Number.isInteger(idNum) || idNum <= 0) return null;
+
+  let baseColab = null;
+  let jefe = null;
+  let saldo = null;
+  let solicitudes = [];
+  let incapacidades = [];
+  let movimientos = [];
+  let consultasChat = [];
+  let escalamientos = [];
+
+  if (db.isMysql()) {
+    const colab = await Collaborator.findByPk(idNum, {
+      attributes: { exclude: ['salario_mensual', 'cedula'] },
+      include: [
+        { model: Collaborator, as: 'jefeDirecto', attributes: ['id', 'nombre', 'apellidos', 'puesto'] },
+        { model: VacationBalance, as: 'saldoVacaciones' }
+      ]
+    });
+    if (!colab) return null;
+    const colabJson = colab.toJSON();
+    jefe = colabJson.jefeDirecto || null;
+    saldo = colabJson.saldoVacaciones || null;
+    const { jefeDirecto, saldoVacaciones, ...rest } = colabJson;
+    baseColab = rest;
+
+    const [solRows, incRows, movRows, chatRows, escRows] = await Promise.all([
+      Request.findAll({ where: { colaborador_id: idNum }, order: [['fecha_solicitud', 'DESC']] }),
+      Disability.findAll({ where: { colaborador_id: idNum }, order: [['fecha_inicio', 'DESC']] }),
+      PersonnelMovement.findAll({ where: { colaborador_id: idNum }, order: [['fecha_efectiva', 'DESC']] }),
+      ChatConsultation.findAll({
+        where: { colaborador_id: idNum },
+        order: [['created_at', 'DESC']],
+        limit: 25
+      }),
+      HumanEscalation.findAll({ where: { colaborador_id: idNum }, order: [['created_at', 'DESC']] })
+    ]);
+
+    solicitudes = solRows.map((s) => s.toJSON());
+    incapacidades = incRows.map((i) => i.toJSON());
+    movimientos = movRows.map((m) => m.toJSON());
+    consultasChat = chatRows.map((c) => c.toJSON());
+    escalamientos = escRows.map((e) => e.toJSON());
+  } else {
+    const snap = db.loadSnapshot();
+    const colab = snap.colaboradores.find((c) => Number(c.id) === idNum);
+    if (!colab) return null;
+    const { salario_mensual, cedula, ...safe } = colab;
+    baseColab = safe;
+    jefe = colab.jefe_directo_id
+      ? snap.colaboradores.find((c) => Number(c.id) === Number(colab.jefe_directo_id)) || null
+      : null;
+    saldo = snap.saldos_vacaciones.find((s) => Number(s.colaborador_id) === idNum) || null;
+    solicitudes = (snap.solicitudes || [])
+      .filter((s) => Number(s.colaborador_id) === idNum)
+      .sort((a, b) => new Date(b.fecha_solicitud) - new Date(a.fecha_solicitud));
+    incapacidades = (snap.incapacidades || [])
+      .filter((i) => Number(i.colaborador_id) === idNum)
+      .sort((a, b) => new Date(b.fecha_inicio) - new Date(a.fecha_inicio));
+    movimientos = (snap.movimientos_personal || [])
+      .filter((m) => Number(m.colaborador_id) === idNum)
+      .sort((a, b) => new Date(b.fecha_efectiva) - new Date(a.fecha_efectiva));
+    consultasChat = (snap.consultas_chat || [])
+      .filter((c) => Number(c.colaborador_id) === idNum)
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .slice(0, 25);
+    escalamientos = (snap.escalaciones_rrhh || [])
+      .filter((e) => Number(e.colaborador_id) === idNum)
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  }
+
+  const tenure = calculateTenure(baseColab.fecha_ingreso);
+  const diasDisponibles = Number(saldo?.dias_disponibles || 0);
+  const diasAcumulados = Number(saldo?.dias_acumulados || 0);
+  const diasDisfrutados = Number(saldo?.dias_disfrutados || 0);
+  const tasaUtilizacionVacacionesPct = diasAcumulados > 0
+    ? Number(((diasDisfrutados / diasAcumulados) * 100).toFixed(1))
+    : 0;
+  const excedeTope20Dias = diasDisponibles > 20 || diasAcumulados > 20;
+
+  const nowMs = Date.now();
+  const pendientesList = solicitudes.filter((s) => s.estado === 'PENDIENTE');
+  const pendientesMas3Dias = pendientesList.filter(
+    (s) => (nowMs - new Date(s.fecha_solicitud).getTime()) / (1000 * 60 * 60 * 24) > 3
+  ).length;
+  const incapacidadActiva = incapacidades.some((i) => i.estado === 'ACTIVA');
+  const diasIncapacidadAcumulados = incapacidades.reduce(
+    (acc, i) => acc + Number(i.dias_incapacidad || 0),
+    0
+  );
+
+  const avgConf = consultasChat.length > 0
+    ? Math.round(
+        (consultasChat.reduce((acc, c) => acc + Number(c.confianza || 0), 0) / consultasChat.length) * 100
+      )
+    : 100;
+  const scoreDesempeno = Number(baseColab.ultimo_score_desempeno || 0);
+
+  const alertas = [];
+  if (excedeTope20Dias) {
+    alertas.push({
+      nivel: 'ALTA',
+      codigo: 'POL-VAC-001',
+      mensaje: `Saldo de vacaciones disponibles (${diasDisponibles} días) supera el tope interno preventivo de 20 días. Programar disfrute con jefatura.`
+    });
+  }
+  if (pendientesMas3Dias > 0) {
+    alertas.push({
+      nivel: 'MEDIA',
+      codigo: 'SLA-SOLICITUDES',
+      mensaje: `Tiene ${pendientesMas3Dias} solicitud(es) pendiente(s) con más de 3 días de espera sin resolución humana.`
+    });
+  }
+  if (incapacidadActiva) {
+    alertas.push({
+      nivel: 'INFO',
+      codigo: 'PRO-INC-003',
+      mensaje: 'Colaborador registra actualmente una incapacidad médica activa.'
+    });
+  }
+  if (escalamientos.some((e) => e.estado !== 'RESUELTO')) {
+    alertas.push({
+      nivel: 'MEDIA',
+      codigo: 'ESCALAMIENTO-RAG',
+      mensaje: 'Posee tickets de escalamiento pendientes de atención por RRHH.'
+    });
+  }
+
+  return {
+    colaborador: {
+      ...baseColab,
+      nombreCompleto: `${baseColab.nombre} ${baseColab.apellidos}`.trim(),
+      jefe_nombre: jefe ? jefe.nombre : null,
+      jefe_apellidos: jefe ? jefe.apellidos : null,
+      jefe_puesto: jefe ? jefe.puesto : null
+    },
+    saldoVacaciones: saldo,
+    solicitudes,
+    incapacidades,
+    movimientos,
+    consultasChat,
+    escalamientos,
+    kpisIndividuales: {
+      ...tenure,
+      diasVacacionesDisponibles: diasDisponibles,
+      diasVacacionesAcumulados: diasAcumulados,
+      diasVacacionesDisfrutados: diasDisfrutados,
+      tasaUtilizacionVacacionesPct,
+      excedeTope20Dias,
+      totalSolicitudes: solicitudes.length,
+      solicitudesPendientes: pendientesList.length,
+      solicitudesAprobadas: solicitudes.filter((s) => s.estado === 'APROBADA').length,
+      solicitudesRechazadas: solicitudes.filter((s) => s.estado === 'RECHAZADA').length,
+      totalIncapacidades: incapacidades.length,
+      diasIncapacidadAcumulados,
+      incapacidadActiva,
+      totalConsultasChat: consultasChat.length,
+      confianzaPromedioChatPct: avgConf,
+      escalamientosTotal: escalamientos.length,
+      scoreDesempeno,
+      nivelDesempeno: classifyPerformanceLevel(scoreDesempeno),
+      alertas
+    }
+  };
+}
+
 module.exports = {
   findUserByEmail,
   getUserPermissions,
   updateUserLastLogin,
   getCollaboratorCompleteProfile,
+  getCollaboratorsDetailedAnalytics,
+  getCollaboratorIndividualReport,
   createSolicitud,
   listSolicitudesAdmin,
   resolveSolicitud,

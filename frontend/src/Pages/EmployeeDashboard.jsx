@@ -13,16 +13,23 @@ import {
   AlertCircle,
   ArrowRight,
   ShieldCheck,
-  X
+  X,
+  FileText,
+  Download,
+  Printer,
+  ArrowRightLeft,
+  UserCheck
 } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 import api from '../Services/api';
+import { downloadJsonFile, getEstadoStyle } from '../Components/Reports/exportHelpers';
 
 export default function EmployeeDashboard() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [form, setForm] = useState({
     tipo: 'VACACIONES',
     fecha_inicio: '',
@@ -119,12 +126,12 @@ export default function EmployeeDashboard() {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '0.85rem', flexWrap: 'wrap' }}>
           <button
             type="button"
             onClick={() => setShowModal(true)}
             className="btn-apple-primary"
-            style={{ padding: '0.8rem 1.6rem', fontSize: '0.925rem' }}
+            style={{ padding: '0.8rem 1.5rem', fontSize: '0.9rem' }}
           >
             <PlusCircle size={16} />
             <span>Solicitar Vacaciones</span>
@@ -132,9 +139,19 @@ export default function EmployeeDashboard() {
 
           <button
             type="button"
+            onClick={() => setShowReportModal(true)}
+            className="btn-apple-secondary-light"
+            style={{ padding: '0.8rem 1.5rem', fontSize: '0.9rem' }}
+          >
+            <FileText size={16} />
+            <span>Ver Mi Reporte Individual Completo</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => navigate('/chat')}
             className="btn-apple-secondary-light"
-            style={{ padding: '0.8rem 1.6rem', fontSize: '0.925rem' }}
+            style={{ padding: '0.8rem 1.5rem', fontSize: '0.9rem' }}
           >
             <MessageSquareText size={16} />
             <span>Consultar con PolicyBot</span>
@@ -379,8 +396,8 @@ export default function EmployeeDashboard() {
                   <tr key={inc.id}>
                     <td style={{ fontWeight: 600, fontFamily: 'monospace' }}>{inc.numero_boleta}</td>
                     <td>{inc.entidad_emisora}</td>
-                    <td>{inc.tipo}</td>
-                    <td>{inc.dias} días</td>
+                    <td>{inc.tipo_incapacidad || inc.tipo}</td>
+                    <td>{inc.dias_incapacidad ?? inc.dias} días</td>
                     <td>{String(inc.fecha_inicio).slice(0, 10)} → {String(inc.fecha_fin).slice(0, 10)}</td>
                     <td>
                       <span
@@ -403,6 +420,216 @@ export default function EmployeeDashboard() {
           </div>
         </div>
       )}
+
+      {/* Modal de Reporte Individual Completo del Colaborador */}
+      {showReportModal && (() => {
+        const start = colaborador.fecha_ingreso ? new Date(colaborador.fecha_ingreso) : new Date();
+        const now = new Date();
+        const months = Math.max(0, (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth()));
+        const years = Math.floor(months / 12);
+        const remMonths = months % 12;
+        const antiguedadTexto = years > 0 ? `${years} año(s) y ${remMonths} mes(es)` : `${remMonths} mes(es)`;
+        const tasaUso = diasAcumulados > 0 ? ((diasDisfrutados / diasAcumulados) * 100).toFixed(1) : '0.0';
+
+        const handleDownloadTxt = () => {
+          const textReport = [
+            `REPORTE INDIVIDUAL DE EXPEDIENTE — TICOTECH S.A.`,
+            `Colaborador: ${colaborador.nombre} ${colaborador.apellidos} (${colaborador.codigo_empleado})`,
+            `Puesto / Depto: ${colaborador.puesto} — ${colaborador.departamento} (${colaborador.modalidad})`,
+            `Jefatura Directa: ${colaborador.jefe_nombre ? `${colaborador.jefe_nombre} ${colaborador.jefe_apellidos}` : 'Dirección Ejecutiva'}`,
+            `Fecha de Ingreso: ${String(colaborador.fecha_ingreso).slice(0, 10)} (Antigüedad: ${antiguedadTexto})`,
+            `Vacaciones: ${diasDisponibles.toFixed(1)} disponibles de ${diasAcumulados.toFixed(1)} acumulados (Uso: ${tasaUso}%)`,
+            `Última Calificación OKR: ${Number(colaborador.ultimo_score_desempeno || 0).toFixed(2)} / 5.0`,
+            `Solicitudes: ${(solicitudes || []).length} registradas`,
+            `Incapacidades: ${(incapacidades || []).length} boletas`,
+            `Movimientos de Personal: ${(movimientos || []).length} registros`
+          ].join('\n');
+          const blob = new Blob([textReport], { type: 'text/plain;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `mi_reporte_${colaborador.codigo_empleado}.txt`;
+          a.click();
+          URL.revokeObjectURL(url);
+        };
+
+        return (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              backgroundColor: 'rgba(16, 17, 20, 0.6)',
+              backdropFilter: 'blur(12px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1.25rem',
+              zIndex: 1000
+            }}
+          >
+            <div
+              className="apple-card"
+              style={{
+                width: '100%',
+                maxWidth: 920,
+                maxHeight: '90vh',
+                overflowY: 'auto',
+                padding: '2rem',
+                backgroundColor: '#F5F5F7',
+                boxShadow: '0 25px 60px rgba(0, 0, 0, 0.3)'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                <div>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#2878FF', textTransform: 'uppercase' }}>
+                    Expediente Personal Certificado • {colaborador.codigo_empleado}
+                  </span>
+                  <h3 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1D1D1F', margin: '0.2rem 0 0' }}>
+                    {colaborador.nombre} {colaborador.apellidos}
+                  </h3>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn-apple-secondary-light"
+                    style={{ padding: '0.45rem 0.85rem', fontSize: '0.78rem' }}
+                    onClick={() => downloadJsonFile(profile, `mi_reporte_${colaborador.codigo_empleado}.json`)}
+                  >
+                    <Download size={14} /> JSON
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-apple-secondary-light"
+                    style={{ padding: '0.45rem 0.85rem', fontSize: '0.78rem' }}
+                    onClick={handleDownloadTxt}
+                  >
+                    <FileText size={14} /> TXT
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-apple-secondary-light"
+                    style={{ padding: '0.45rem 0.85rem', fontSize: '0.78rem' }}
+                    onClick={() => window.print()}
+                  >
+                    <Printer size={14} /> Imprimir
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowReportModal(false)}
+                    style={{ width: 34, height: 34, borderRadius: '50%', background: '#FFFFFF', color: '#1D1D1F', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="apple-card" style={{ padding: '1.25rem', marginBottom: '1.25rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', fontSize: '0.84rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.72rem', color: '#86868B', textTransform: 'uppercase' }}>Puesto y Modalidad</div>
+                  <strong>{colaborador.puesto} ({colaborador.modalidad})</strong>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.72rem', color: '#86868B', textTransform: 'uppercase' }}>Jefatura Directa</div>
+                  <strong style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <UserCheck size={14} color="#2878FF" />
+                    {colaborador.jefe_nombre ? `${colaborador.jefe_nombre} ${colaborador.jefe_apellidos}` : 'Dirección Ejecutiva'}
+                  </strong>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.72rem', color: '#86868B', textTransform: 'uppercase' }}>Antigüedad</div>
+                  <strong>{antiguedadTexto} (desde {String(colaborador.fecha_ingreso).slice(0, 10)})</strong>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.72rem', color: '#86868B', textTransform: 'uppercase' }}>Tasa de Uso Vacaciones</div>
+                  <strong>{tasaUso}% ({diasDisfrutados.toFixed(1)}d disfrutados)</strong>
+                </div>
+              </div>
+
+              <div className="apple-card" style={{ padding: '1.25rem', marginBottom: '1.25rem' }}>
+                <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem' }}>
+                  Historial de Movimientos de Personal ({(movimientos || []).length})
+                </h4>
+                {(movimientos || []).length === 0 ? (
+                  <div style={{ color: '#86868B', fontSize: '0.84rem' }}>Sin movimientos recientes registrados.</div>
+                ) : (
+                  <table className="apple-table">
+                    <thead>
+                      <tr>
+                        <th>Fecha</th>
+                        <th>Movimiento</th>
+                        <th>Motivo</th>
+                        <th>Autorizado Por</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {movimientos.map((mov) => (
+                        <tr key={mov.id}>
+                          <td>{String(mov.fecha_efectiva).slice(0, 10)}</td>
+                          <td>
+                            <strong style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                              <ArrowRightLeft size={13} color="#2878FF" /> {mov.tipo_movimiento}
+                            </strong>
+                          </td>
+                          <td>{mov.motivo}</td>
+                          <td style={{ color: '#6E6E73' }}>{mov.autorizado_por}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              <div className="apple-card" style={{ padding: '1.25rem' }}>
+                <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem' }}>
+                  Solicitudes ({(solicitudes || []).length}) e Incapacidades ({(incapacidades || []).length})
+                </h4>
+                <table className="apple-table">
+                  <thead>
+                    <tr>
+                      <th>Tipo</th>
+                      <th>Período</th>
+                      <th>Días</th>
+                      <th>Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(solicitudes || []).map((s) => {
+                      const st = getEstadoStyle(s.estado);
+                      return (
+                        <tr key={`sol-${s.id}`}>
+                          <td><strong>{s.tipo}</strong></td>
+                          <td>{String(s.fecha_inicio).slice(0, 10)} → {String(s.fecha_fin).slice(0, 10)}</td>
+                          <td>{s.dias_solicitados} d</td>
+                          <td>
+                            <span style={{ fontSize: '0.72rem', fontWeight: 600, padding: '0.2rem 0.6rem', borderRadius: 980, background: st.bg, color: st.color }}>
+                              {s.estado}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {(incapacidades || []).map((inc) => {
+                      const st = getEstadoStyle(inc.estado);
+                      return (
+                        <tr key={`inc-${inc.id}`}>
+                          <td><strong>INCAPACIDAD ({inc.tipo_incapacidad || inc.tipo})</strong></td>
+                          <td>{String(inc.fecha_inicio).slice(0, 10)} → {String(inc.fecha_fin).slice(0, 10)}</td>
+                          <td>{inc.dias_incapacidad ?? inc.dias} d</td>
+                          <td>
+                            <span style={{ fontSize: '0.72rem', fontWeight: 600, padding: '0.2rem 0.6rem', borderRadius: 980, background: st.bg, color: st.color }}>
+                              {inc.estado}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Modal Minimalista de Nueva Solicitud */}
       {showModal && (
@@ -453,7 +680,11 @@ export default function EmployeeDashboard() {
                   onChange={(e) => setForm({ ...form, tipo: e.target.value })}
                 >
                   <option value="VACACIONES">Vacaciones Ordinarias</option>
-                  <option value="PERMISO">Permiso con Goce de Salario</option>
+                  <option value="PERMISO_CON_GOCE">Permiso con Goce de Salario</option>
+                  <option value="PERMISO_SIN_GOCE">Permiso sin Goce de Salario</option>
+                  <option value="LICENCIA_PATERNIDAD">Licencia de Paternidad</option>
+                  <option value="LICENCIA_DUELO">Licencia por Duelo</option>
+                  <option value="CONSTANCIA_SALARIAL">Constancia Salarial</option>
                   <option value="TELETRABAJO">Ajuste de Teletrabajo</option>
                 </select>
               </div>

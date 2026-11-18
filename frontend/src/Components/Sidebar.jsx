@@ -75,7 +75,7 @@ export default function Sidebar() {
               className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
             >
               <BarChart3 size={18} className="sidebar-icon" />
-              <span>Dashboard RRHH</span>
+              <span>Reportes &amp; Analítica</span>
             </NavLink>
 
             <NavLink
